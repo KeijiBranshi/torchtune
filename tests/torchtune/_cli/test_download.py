@@ -263,3 +263,41 @@ class TestTuneDownloadCommand:
         output = capsys.readouterr().out
         assert "Successfully downloaded model repo" in output
         assert expected_kaggle_output_path in output
+
+    def test_download_from_kaggle_warn_on_nonmeta_pytorch_models(
+        self, monkeypatch, mocker
+    ):
+        model = "kaggle/kaggle-model-name/pytorch/1b"
+        testargs = f"tune download {model} --source kaggle".split()
+        monkeypatch.setattr(sys, "argv", testargs)
+
+        # stub out model_download to guarantee success
+        mocker.patch(
+            "torchtune._cli.download.model_download",
+            return_value="/tmp/downloaded_model",
+        )
+        mocker.patch(
+            "torchtune._cli.download.copytree", return_value="/tmp/downloaded_model"
+        )
+
+        with pytest.warns(UserWarning, match="may not be compatible with torchtune"):
+            runpy.run_path(TUNE_PATH, run_name="__main__")
+
+    def test_download_from_kaggle_warn_on_nonpytorch_nontransformers_model(
+        self, monkeypatch, mocker
+    ):
+        model = "metaresearch/some-model/some-madeup-framework/1b"
+        testargs = f"tune download {model} --source kaggle".split()
+        monkeypatch.setattr(sys, "argv", testargs)
+
+        # stub out model_download to guarantee success
+        mocker.patch(
+            "torchtune._cli.download.model_download",
+            return_value="/tmp/downloaded_model",
+        )
+        mocker.patch(
+            "torchtune._cli.download.copytree", return_value="/tmp/downloaded_model"
+        )
+
+        with pytest.warns(UserWarning, match="may not be compatible with torchtune"):
+            runpy.run_path(TUNE_PATH, run_name="__main__")

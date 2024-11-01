@@ -208,6 +208,7 @@ class Download(Subcommand):
 
         # Note: Kaggle doesn't actually use the "repository" terminology, but we still reuse args.repo_id here for simplicity
         model_handle = args.repo_id
+        self._validate_kaggle_model_handle(model_handle)
 
         # Default output_dir is `/tmp/<model_name>`, stripping the publisher name to align with HF output_dir format
         output_dir = args.output_dir
@@ -219,7 +220,7 @@ class Download(Subcommand):
             self._parser.error(
                 "Both your Kaggle username and api key are needed to authenticate to Kaggle, but only one was provided."
             )
-        elif bool(args.kaggle_username) & bool(args.kaggle_api_key):
+        elif bool(args.kaggle_username) and bool(args.kaggle_api_key):
             set_kaggle_credentials(args.kaggle_username, args.kaggle_api_key)
 
         try:
@@ -272,3 +273,20 @@ class Download(Subcommand):
             *output_list,
             sep="\n",
         )
+
+    def _validate_kaggle_model_handle(self, handle: str) -> None:
+        try:
+            handle_parts = handle.split("/")
+            model_publisher = handle_parts[0].lower()
+            model_framework = handle_parts[2].lower()
+            if model_framework == "pytorch" and model_publisher != "metaresearch":
+                warn(
+                    f"Requested PyTorch model {handle} was not published from Meta, and therefore may not be compatible with torchtune."
+                )
+            if model_framework not in {"pytorch", "transformers"}:
+                warn(
+                    f"Requested model {handle} is neither a PyTorch nor a Transformers model, and therefore may not be compatible with torchtune."
+                )
+        except Exception as e:
+            msg = f"Failed to validate {handle} with error {e}."
+            self._parser.error(msg)
